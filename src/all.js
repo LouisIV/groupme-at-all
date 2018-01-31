@@ -267,7 +267,7 @@ class AllBot {
       this.respondToViewPeak(res)
     );
     this.robot.hear(/peak (.+)/i, res =>
-      respondToPeakList(res, res.match[1]))
+      respondToPeakList(res, res.match[1])
     );
     this.robot.hear(/rpeak (.+)/i, res =>
       respondToRPEak(res, res.match[1])
