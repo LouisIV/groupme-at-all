@@ -20,15 +20,33 @@ class AllBot {
   constructor(robot) {
     this.robot = robot;
     this.blacklist = [];
+    this.peak = [];
 
     // Load the blacklist as soon as we can
-    this.robot.brain.once("loaded", this.loadBlacklist.bind(this));
+    this.robot.brain.once("loaded", this.loadMemory.bind(this));
   }
 
   saveBlacklist() {
     console.log("Saving blacklist");
     this.robot.brain.set("blacklist", this.blacklist);
     this.robot.brain.save();
+  }
+
+  savePeak() {
+    console.log("Saving Peak");
+    this.robot.brain.set("peak", this.peak);
+    this.robot.brain.save();
+  }
+
+  loadMemory(){
+    this.loadBlacklist()
+    this.loadPeak()
+  }
+
+  loadPeak() {
+    this.peak = this.robot.brain.get("peak");
+    if (this.blacklist) console.log("Peak loaded successfully.");
+    else console.warn("Failed to load Peak.");
   }
 
   loadBlacklist() {
@@ -42,6 +60,11 @@ class AllBot {
     this.saveBlacklist();
   }
 
+  addToPeak(item) {
+    this.peak.push(item);
+    this.saveBlacklist();
+  }
+
   removeFromBlacklist(item) {
     let index = this.blacklist.indexOf(item);
     if (index !== -1) {
@@ -50,6 +73,17 @@ class AllBot {
       console.log(`Successfully removed ${item} from blacklist.`);
     } else {
       console.warn(`Unable to find ${item} in blacklist!`);
+    }
+  }
+
+  removeFromPeak(item) {
+    let index = this.peak.indexOf(item);
+    if (index !== -1) {
+      this.peak.splice(index, 1);
+      this.savePeak();
+      console.log(`Successfully removed ${item} from Peak.`);
+    } else {
+      console.warn(`Unable to find ${item} in peak!`);
     }
   }
 
@@ -128,6 +162,38 @@ class AllBot {
     res.send(`Whitelisted ${target} successfully`);
   }
 
+  respondToViewPeak(res) {
+    // Raw blacklist
+    if (res.match[1]) return res.send(JSON.strinify(this.peak));
+
+    const blacklistNames = this.peak.map(
+      user => this.getUserById(id).name
+    );
+
+    if (peak.length > 0) return res.send(peak.join(", "));
+    else return res.send("There are currently no users in Peak.");
+  }
+
+  respondToPeakList(res, target) {
+    const user = this.getUserByName(target);
+
+    if (!user) return res.send(`Could not find a user with the name ${target}`);
+
+    conosle.log(`Adding to Peak ${target}, ${user.user_id}`);
+    this.addToPeak(user.user_id);
+    res.send(`Added ${target} to Peak successfully.`);
+  }
+
+  respondToRPEak(res, target) {
+    const user = this.getUserByName(target);
+
+    if (!user) return res.send(`Could not find a user with the name ${target}`);
+
+    console.log(`Removing from Peak ${target}, ${user.user_id}`);
+    this.removeFromPeak(user.user_id);
+    res.send(`Removed ${target} from Peak successfully`);
+  }
+
   respondToAtAll(res) {
     // Select the longer of the two options.
     // TODO: Maybe combine them?
@@ -196,6 +262,15 @@ class AllBot {
     );
     this.robot.hear(/whitelist (.+)/i, res =>
       respondToWhitelist(res, res.match[1])
+    );
+    this.robot.hear(/view( raw)* peak/i, res =>
+      this.respondToViewPeak(res)
+    );
+    this.robot.hear(/peak (.+)/i, res =>
+      respondToPeakList(res, res.match[1]))
+    );
+    this.robot.hear(/rpeak (.+)/i, res =>
+      respondToRPEak(res, res.match[1])
     );
 
     // Mention @all command
