@@ -5,6 +5,11 @@ const room_id = process.env.HUBOT_GROUPME_ROOM_ID;
 const bot_id = process.env.HUBOT_GROUPME_BOT_ID;
 const token = process.env.HUBOT_GROUPME_TOKEN;
 
+
+const grace = process.env.GRACE;
+const peak = process.env.PEAK;
+const bonnie = process.env.BONNIE;
+
 if (!room_id || !bot_id || !token) {
   console.error(
     `@all ERROR: Unable to read full environment.
@@ -20,7 +25,6 @@ class AllBot {
   constructor(robot) {
     this.robot = robot;
     this.blacklist = [];
-    this.peak = [];
 
     // Load the blacklist as soon as we can
     this.robot.brain.once("loaded", this.loadMemory.bind(this));
@@ -31,22 +35,8 @@ class AllBot {
     this.robot.brain.set("blacklist", this.blacklist);
     this.robot.brain.save();
   }
-
-  savePeak() {
-    console.log("Saving Peak");
-    this.robot.brain.set("peak", this.peak);
-    this.robot.brain.save();
-  }
-
   loadMemory(){
     this.loadBlacklist()
-    this.loadPeak()
-  }
-
-  loadPeak() {
-    this.peak = this.robot.brain.get("peak");
-    if (this.blacklist) console.log("Peak loaded successfully.");
-    else console.warn("Failed to load Peak.");
   }
 
   loadBlacklist() {
@@ -60,11 +50,6 @@ class AllBot {
     this.saveBlacklist();
   }
 
-  addToPeak(item) {
-    this.peak.push(item);
-    this.saveBlacklist();
-  }
-
   removeFromBlacklist(item) {
     let index = this.blacklist.indexOf(item);
     if (index !== -1) {
@@ -73,17 +58,6 @@ class AllBot {
       console.log(`Successfully removed ${item} from blacklist.`);
     } else {
       console.warn(`Unable to find ${item} in blacklist!`);
-    }
-  }
-
-  removeFromPeak(item) {
-    let index = this.peak.indexOf(item);
-    if (index !== -1) {
-      this.peak.splice(index, 1);
-      this.savePeak();
-      console.log(`Successfully removed ${item} from Peak.`);
-    } else {
-      console.warn(`Unable to find ${item} in peak!`);
     }
   }
 
@@ -162,38 +136,6 @@ class AllBot {
     res.send(`Whitelisted ${target} successfully`);
   }
 
-  respondToViewPeak(res) {
-    // Raw blacklist
-    if (res.match[1]) return res.send(JSON.strinify(this.peak));
-
-    const peakNames = this.peak.map(
-      user => this.getUserById(id).name
-    );
-
-    if (peakNames.length > 0) return res.send(peak.join(", "));
-    else return res.send("There are currently no users in Peak.");
-  }
-
-  respondToPeakList(res, target) {
-    const user = this.getUserByName(target);
-
-    if (!user) return res.send(`Could not find a user with the name ${target}`);
-
-    conosle.log(`Adding to Peak ${target}, ${user.user_id}`);
-    this.addToPeak(user.user_id);
-    res.send(`Added ${target} to Peak successfully.`);
-  }
-
-  respondToRPEak(res, target) {
-    const user = this.getUserByName(target);
-
-    if (!user) return res.send(`Could not find a user with the name ${target}`);
-
-    console.log(`Removing from Peak ${target}, ${user.user_id}`);
-    this.removeFromPeak(user.user_id);
-    res.send(`Removed ${target} from Peak successfully`);
-  }
-
   respondToAtAll(res) {
     // Select the longer of the two options.
     // TODO: Maybe combine them?
@@ -247,6 +189,61 @@ class AllBot {
     req.end(json);
   }
 
+  respondToAtPeak(res) {
+    // Select the longer of the two options.
+    // TODO: Maybe combine them?
+    const text =
+      res.match[0].length > res.match[1].length ? res.match[0] : res.match[1];
+
+    // Default text if not long enough
+    // TODO: Is this necessary? Can't we tag everyone on a 1 character message?
+    // if (text.length < users.length)
+    //   text = "Please check the GroupMe, everyone.";
+
+    // The message for use in GroupMe API
+    const message = {
+      text,
+      bot_id,
+      attachments: [{ loci: [], type: "mentions", user_ids: [] }]
+    };
+
+    // Add "mention" for each user
+    const users = this.robot.brain.users();
+    Object.keys(users).map((userID, index) => {
+      // Skip blacklisted users
+      if (!(peak.indexOf(userID) !== -1)) return;
+
+      // TODO: Would [i, i] work?
+      message.attachments[0].loci.push([index, index + 1]);
+      message.attachments[0].user_ids.push(userID);
+    });
+
+    // Send the request
+    const json = JSON.stringify(message);
+    const groupmeAPIOptions = {
+      agent: false,
+      host: "api.groupme.com",
+      path: "/v3/bots/post",
+      port: 443,
+      method: "POST",
+      headers: {
+        "Content-Length": json.length,
+        "Content-Type": "application/json",
+        "X-Access-Token": token
+      }
+    };
+    const req = https.request(groupmeAPIOptions, response => {
+      let data = "";
+      response.on("data", chunk => (data += chunk));
+      response.on("end", () =>
+        console.log(`[GROUPME RESPONSE] ${response.statusCode} ${data}`)
+      );
+    });
+    req.end(json);
+  }
+
+
+
   // Defines the main logic of the bot
   run() {
     // Register listeners with hubot
@@ -263,18 +260,21 @@ class AllBot {
     this.robot.hear(/whitelist (.+)/i, res =>
       respondToWhitelist(res, res.match[1])
     );
-    this.robot.hear(/view( raw)* peak/i, res =>
-      this.respondToViewPeak(res)
-    );
-    this.robot.hear(/peak (.+)/i, res =>
-      respondToPeakList(res, res.match[1])
-    );
-    this.robot.hear(/rpeak (.+)/i, res =>
-      respondToRPEak(res, res.match[1])
-    );
+    // this.robot.hear(/view( raw)* peak/i, res =>
+    //   this.respondToViewPeak(res)
+    // );
+    // this.robot.hear(/peak (.+)/i, res =>
+    //   respondToPeakList(res, res.match[1])
+    // );
+    // this.robot.hear(/rpeak (.+)/i, res =>
+    //   respondToRPEak(res, res.match[1])
+    // );
 
     // Mention @all command
     this.robot.hear(/(.*)@all(.*)/i, res => this.respondToAtAll(res));
+
+    // Mention @peak command
+    this.robot.hear(/(.*)@peak(.*)/i, res => this.respondToAtPeak(res));
   }
 }
 
