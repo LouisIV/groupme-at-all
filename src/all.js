@@ -166,11 +166,11 @@ class AllBot {
     // Raw blacklist
     if (res.match[1]) return res.send(JSON.strinify(this.peak));
 
-    const blacklistNames = this.peak.map(
+    const peakNames = this.peak.map(
       user => this.getUserById(id).name
     );
 
-    if (peak.length > 0) return res.send(peak.join(", "));
+    if (peakNames.length > 0) return res.send(peak.join(", "));
     else return res.send("There are currently no users in Peak.");
   }
 
