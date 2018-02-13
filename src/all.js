@@ -1,4 +1,5 @@
 const https = require("https");
+// var ig = require('instagram-node').instagram();
 
 // Bot configs read in from environment
 const room_id = process.env.HUBOT_GROUPME_ROOM_ID;
@@ -25,7 +26,7 @@ class AllBot {
   constructor(robot) {
     this.robot = robot;
     this.blacklist = [];
-
+    // ig.use({ access_token: process.env.INSTAGRAM_TOKEN });
     // Load the blacklist as soon as we can
     this.robot.brain.once("loaded", this.loadMemory.bind(this));
   }
@@ -242,8 +243,10 @@ class AllBot {
     req.end(json);
   }
 
-
-
+  showAddresses(res) {
+    res.send(process.env.ADDRESS_LIST);
+  }
+  
   // Defines the main logic of the bot
   run() {
     // Register listeners with hubot
@@ -275,6 +278,11 @@ class AllBot {
 
     // Mention @peak command
     this.robot.hear(/(.*)@peak(.*)/i, res => this.respondToAtPeak(res));
+
+    // Insta
+    // this.robot.hear(/TFM(.*)/i, res => this.pullTFM(res));
+
+    this.robot.hear(/(.*)@addresses(.*)/i, res => this.showAddresses(res));
   }
 }
 
