@@ -246,7 +246,11 @@ class AllBot {
   showAddresses(res) {
     res.send(process.env.ADDRESS_LIST);
   }
-  
+
+  printHelp(res) {
+    res.send("Here are the available @ commands: All, Peak, Addresses. Not Working: Bonnie, Grace");
+  }
+
   // Defines the main logic of the bot
   run() {
     // Register listeners with hubot
@@ -283,6 +287,8 @@ class AllBot {
     // this.robot.hear(/TFM(.*)/i, res => this.pullTFM(res));
 
     this.robot.hear(/(.*)@addresses(.*)/i, res => this.showAddresses(res));
+
+    this.robot.hear(/(.*)@help(.*)/i, res => this.printHelp(res));
   }
 }
 
